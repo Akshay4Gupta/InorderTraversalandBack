@@ -1,0 +1,370 @@
+\title{\begin{center}Assignment 2:\end{center} \newline Weaving through Entangled Webs in the Wood}
+\maketitle
+
+\begin{center} \textbf{MCS192556} \end{center}
+
+\begin{abstract}
+As discussed in the document Rambling through Woods on a Sunny Morning, a binary tree can be recovered
+from it’s preorder (or postorder) traversal. Although the same approach can not be used to recover the tree
+from inorder traversal. The issue arises due to the difference in type of information that is abstracted by
+these traversals. Preorder (or postorder) traversal does not hide the parent-child relation viz. a parent node
+will always appear before a child node in preorder traversal (after in postorder traversal); although the parity
+(number of children) of the parent node is lost.
+
+However inorder traversal does not have any such guarantee.
+For the same reason infix expressions require “cosmetic sugar” such as parentheses, associativity and precedence
+of operators to enable parsing of expressions unambiguously while prefix (or postfix) expressions need only the
+arity of each operator. So here we have used the SOME 0, SOME 1 and NONE as "cosmetic sugar" for construction of
+the inorder array and for finding of the inorder tree.
+\end{abstract}
+
+\par
+Here in this document many things are just taken from the document Rambling through Woods on a Sunny Morning which gives
+us the great insight of how the preorder and postorder are sufficient enough to reconstruct the tree from it.
+
+At the end of the document the procedure that was thought of gives the main hint of how we should proceed for
+reconstructing the tree from the inorder traversal.
+
+Here we have used some bits information to store the inorder traversal so that later on we can recover it and reconstruct the tree accurately.
+We can use this information and store it with the data in tuple and then make the list of tuples, or we can also make a different array for that extra
+data which will be the same thing with different perspective. This information can be storing the paranthesis, some 0,1 bits or the level of that node,
+however storing level of node may take more storage space as the tree can be any large,
+So here I will be using the different array for that data to store and that extra information here would be SOME 0, SOME 1, and NONE
+and then use that information in retrieving the tree back from that traversal.
+
+\section{ALGORITHM}
+\begin{enumerate}
+\item Find the indices of all NONE elements in P and express them as CIIs i.e. as ordered pairs of the form (i, i) where
+i, 0 $\leq$ i $<$ n, is the index of a NONE element. Let this be list PI
+of ordered pairs representing Empty subtrees.
+Further let $\mid PI \mid$ be the number of CIIs in PI and \newline $\|PI\|$ = $\sum_{(i,j) \epsilon PI}$  (j - i + 1) represent the number of
+elements from P that are in PI. Then n - $\|PI\|$ is the number of elements in P that are not present in PI.
+At the end of this step $\|PI\|$ = $\mid PI \mid$ and PI contains exactly the number of occurrences of NONE in P .
+\item \textbf{Recursively}
+\begin{enumerate} \item Find all pairs of neighbours (i, j), (k, m) in P I with 0 $<$ i $\leq$ j $<$ k = j + 2 $\leq$ m $<$ n in the
+list PI and $P_{j+1}$ $\neq$ NONE. This would require looking up P for the value at index j+ 1 to determine
+neighbourhood. Further if $P_{j+1}$ = NONE then P is not a valid inorder traversal.
+\item Join neighbours (i, j), (k, m) to form the CII (i, m) in which both (i, j) and (k, m) are nested.
+In fact, the CII so formed is longer than the sum of the lengths of the CIIs (i, j) and (k, m), thus
+guaranteeing that $\mid PI \mid$ always decreases, but since $\|PI\|$ increases, the bound function n - $\|PI\|$
+decreases with every recursive call.
+\end{enumerate}
+\textbf{until}
+\begin{itemize}
+\item \textbf{either} P I reduces to a (list with a) single element (0, n-1), in which case P is indeed a valid inorder
+traversal,
+\item \textbf{or} P I reduces to a list with more than one element and no neighbours, in which case P is an invalid
+inorder traversal.
+\end{enumerate}
+\section{Exceptions}
+\par
+These exceptions will be raised when some undesirable situation arises like there is some empty node in the middle of the tree or the binary tree is empty etc.
+
+<<EXCEPTIONS>>=
+exception Empty_bintree;
+exception Unexpected_Empty_Node;
+exception Unexpected_Node_Value;
+exception Out_of_Range;
+exception Invalid_Inorder_Traversal;
+@
+
+\section{Datatype of the Binary tree}
+\par
+The data type of the binary tree will be of some type 'a bintree and it can be either empty or will be containing some data of type 'a and two left and right child of type 'a bintree.
+
+<<DATATYPE>>=
+datatype 'a bintree = Empty | Node of 'a * 'a bintree * 'a bintree;
+@
+
+\section{Function for the inorder Traversal}
+There is a function inorder to which if the root node is passed of some tree then it will give you back the inorder traversal of that tree.
+But this here the function inorderI will also add some extra imformation of the left and right child which will make it easier to reconstruct the tree later.
+
+Now here you also have to see that the SOME 0 and SOME 1  denote the left and right child respectively and NONE denotes the root node that is at the level zero.
+<<INORDER>>=
+fun  inorderI (Empty,priority) =([NONE],[priority])
+|  inorderI (Node(x, left, right),priority) =
+   let
+    val (inL,priorityL) =  inorderI(left,SOME 0)
+    val (inR,priorityR) =  inorderI(right,SOME 1)
+   in
+    (inL@((SOME x)::inR),priorityL@(priority::priorityR))
+   end;
+@
+
+<<INORDERtRAVERSAL>>=
+local
+ <<INORDER>>
+in
+ fun inorder node =  inorderI(node,NONE)
+end;
+@
+
+\section{Root}
+\par
+The root function full return us the root node of the tree or raise exception if the binary tree is empty
+<<ROOT>>=
+fun root Empty = raise Empty_bintree
+| root (Node (x, _, _)) = x;
+@
+
+\section{Finding None's in the tree}
+\par
+The find Nones is actually the function that is used to find all the NONES in the tree and make the node containing Cii value, their data which will be NONE and the extra information present at that position from the list taken to store that information.
+The Cii values will be the same as defined in the document  Rambling through Woods on a Sunny Morning.
+<<FINDnONES>>=
+fun findNONEs ([], _, T) = T
+| findNONEs ((NONE::t), i, T) =
+	findNONEs (t, i+1, Node(((i,i), NONE, List.nth (pr, i)),Empty,Empty)::T)
+| findNONEs (((SOME x)::t),i, T) = findNONEs(t,i+1,T);
+@
+
+\par
+This function is used because the list of nodes containing NONE will be recieved in the reverse order so it will reverse it and return it in the right order.
+
+<<FINDeMPTIES>>=
+fun findEmpties(PIT,pr) = let
+  <<FINDnONES>>
+  val NONEs = findNONEs (PIT, 0, [])
+  in
+  rev NONEs
+  end;
+@
+
+\section{Are they Neighbours?}
+This will help in finding if the two nodes are the Neighbours or not and this will be done by comparing their Cii's and then seeing if one is the left child and other is the right child. If the condition satisfies then it will join the nodes and return the parent node else will return false.
+
+We denote slices in a traversal that result in subtrees by an ordered pair of indices called closed index interval
+(CII). Let I(n) = $\{$(i, j) $\mid$ 0 $\leq$ i $\leq$ j $<$ n $\}$ denote the set of all non-empty closed index intervals of slices
+of a list L of length n $>$ 0. For any valid index i, 0 $\leq$ i $<$ n, L i denotes the element in L at index i
+\begin{enumerate}
+\item \textit{A CII of the form (i, i) can only represent an Empty (sub-)tree and that too provided $L_{i}$ = NONE. We denote
+the (sub-)tree it represents by T (i,i) .}
+\item \textit{No CII of the form (i, i + 1) can represent a valid sub-tree.}
+\item \textit{Regardless of whether the traversal is preorder, inorder or postorder if T (k,m) is a subtree of T (i,j) then the
+CII (k, m) is entirely contained within the CII (i, j) i.e. 0 $\leq$ i $\leq$ k $\leq$ m $\leq$ j $<$ n.}
+\end{enumerate}
+\par
+This may be the less information provided for Cii, for the detailed view the document Rambling through Woods on a Sunny Morning will give the best explaination.
+
+<<AREnEIGHBOURS>>=
+fun areNeighbours (((i,j), (k, m)),pr0,pr1) =
+  let
+   val inRange = (i >= 0) andalso (i < n)
+   	andalso (j >= 0) andalso (j < n) andalso (k >= 0)
+	andalso (k < n) andalso (m >= 0) andalso (m < n)
+    in
+   if inRange then
+    if (i<=j) andalso (j<k) andalso (k<= m)
+		andalso (pr0 = SOME 0) andalso (pr1 = SOME 1) then
+     (
+      case Array.sub (arI, j+1) of NONE => false
+        | SOME _ => (k=j+2) (* Inorder *)
+     )
+    else false
+   else raise Out_of_Range
+     end;
+@
+
+\section{Join Them Now}
+\par
+This function is used to join the Neighbours by first checking if they are really Neighbours and then combining their Cii's and taking a root node, the extra information of the root node and combining the left and right child in the single node.
+<<JOINnEIGHBOURS>>=
+local
+ fun joinNeighbours [] = []
+ | joinNeighbours [bt] = [bt]
+ | joinNeighbours (bt0::(bt1::btList')) = let
+    val ((i,j), rootval0, pr0) = root bt0
+    val ((k,m), rootval1, pr1) = root bt1
+   in
+    if areNeighbours (((i,j), (k, m)),pr0,pr1) then
+     let
+      val cii = (i, m)
+      val rt = Array.sub (arI, j+1) (* Inorder *)
+      val pr = Array.sub (prio, j+1)
+      val bt = Node ((cii, rt, pr), bt0, bt1)
+     in
+      bt::(joinNeighbours btList')
+     end
+    else
+     bt0::(joinNeighbours (bt1::btList'))
+   end
+in
+ fun keepJoiningNeighbours [] = raise Invalid_Inorder_Traversal
+ | keepJoiningNeighbours [bt] = bt
+ | keepJoiningNeighbours btList = let
+     val btList1 = joinNeighbours btList
+    in
+     keepJoiningNeighbours btList1
+    end (* let *)
+end (* local *);
+@
+
+\section{Erase the dirty things}
+\par
+This function eraseIndices is used to erase the information that was first collected to store the tree in inorder traversal which will now be useless as now the tree was formed and that information will be of no use.
+
+<<ERASEiNDICES>>=
+fun eraseIndices Empty = raise Empty_bintree
+| eraseIndices (Node (((i:int, j:int), NONE, pr), Empty, Empty)) = if (i=j) then
+    Empty
+    else
+    raise Unexpected_Empty_Node
+| eraseIndices (Node (((i:int, j:int), x, pr), LST, RST)) = let
+    val left = eraseIndices LST
+    val right = eraseIndices RST
+    in
+    (
+     case x of NONE => raise Unexpected_Node_Value
+    | SOME y => Node (y, left, right)
+    )
+    end;
+@
+
+\section{Make tree from the Inorder Traversal}
+\par
+This inorderInverse function is used to make the tree from the given Inorder traversal by just using the functions defined above in the right order and then returning the root node after doing all the calculations. the makeTreeFromI1 is abstracted from the view so that the user don't manipulate the sensitive information and result can be formed peacefully
+<<MAKEtREEfROMi1>>=
+fun makeTreeFromI1 ([],P) = raise Invalid_Inorder_Traversal
+| makeTreeFromI1 ([NONE],P) = Empty
+| makeTreeFromI1 ([_,_],P) = raise Invalid_Inorder_Traversal
+| makeTreeFromI1 ([NONE, SOME x, NONE],P) = Node (x, Empty, Empty) (* Inorder *)
+| makeTreeFromI1 ([_,_,_],P) = raise Invalid_Inorder_Traversal
+| makeTreeFromI1 (I,P) = let
+    val arI = Array.fromList I
+    val prio = Array.fromList P
+    val n = Array.length arI
+    <<FINDeMPTIES>>
+
+    <<AREnEIGHBOURS>>
+
+    val NONEs = findEmpties (I,P)
+    <<JOINnEIGHBOURS>>
+    val bt = keepJoiningNeighbours NONEs
+    <<ERASEiNDICES>>
+  in
+    (eraseIndices bt)
+  end;
+@
+
+<<INORDERiNVERSE>>=
+local
+ <<ROOT>>
+ <<MAKEtREEfROMi1>>
+in
+ fun inorderInverse IBtree = makeTreeFromI1(IBtree)
+end;
+@
+\section{ABOUT THE PROGRAM}
+\subsection{Time Complexity}
+\par
+The time Complexity of the program will be O($n^{2}$)
+\subsection{Proof of Correctness}
+\par
+What we will be using is the paranthesis type thing that will always be able to give the correct solution and wont be actually giving the incorrect results.
+\par
+The way this has been implied is that when the Cii is matched and there is a match in paranthesis also then only the child will be merged to the parent otherwise it will be moved forward to find the next pair of children for the parent.
+\section{Making the module}
+\par
+This is the module we have made which will consist of the signatures and then its whole structure under it.
+<<2019MCS2556-MODULE-complete>>=
+<<SIGNATURE>>
+<<STRUCURE>>
+
+@
+
+\subsection{Structure of the whole code}
+\par
+This is the structure of the whole code which will be used to get the inorder traversal and to get the tree back from that result.
+<<STRUCURE>>=
+structure Bintree : BINTREE =
+struct
+ <<EXCEPTIONS>>
+ <<DATATYPE>>
+ <<INORDERtRAVERSAL>>
+ <<INORDERiNVERSE>>
+ <<TESTcASES>>
+end;
+@
+
+\subsection{Signature}
+\par
+This is the signature used inside the code.
+<<SIGNATURE>>=
+signature BINTREE =
+sig
+ exception Empty_bintree
+ exception Unexpected_Empty_Node
+ exception Unexpected_Node_Value
+ exception Out_of_Range
+ exception Invalid_Inorder_Traversal
+ datatype 'a bintree = Empty | Node of 'a * 'a bintree * 'a bintree
+ val inorder : 'a bintree -> 'a option list * int option list
+ val inorderInverse : 'a option list * int option list -> 'a bintree
+ val node1  : int bintree
+ val node2  : int bintree
+ val node3  : int bintree
+ val node4  : int bintree
+ val node5  : int bintree
+ val node7  : int bintree
+ val node69 : int bintree
+ val t1  : int bintree
+ val t6  : int bintree
+ val t3  : int bintree
+ val t2  : int bintree
+ val node8 : int bintree
+ val tree12 : int bintree
+ val tree2 : int bintree
+ val tree31 : int bintree
+ val tree32 : int bintree
+ val tree33 : int bintree
+ val tree34 : int bintree
+ val tree35 : int bintree
+ val tree3 : int bintree
+ val tree41 : int bintree
+ val tree42 : int bintree
+ val tree43 : int bintree
+ val tree44 : int bintree
+ val tree4 : int bintree
+ val tree51 : int bintree
+ val tree5 : int bintree
+ val tree6 : int bintree
+ val tree71 : int bintree
+ val tree72 : int bintree
+ val tree7 : int bintree
+end
+@
+\subsection{Test Cases}
+<<TESTcASES>>=
+val node1 = Node(1,Empty,Empty);
+val node2 = Node(2,Empty,Empty);
+val node3 = Node(3,Empty,Empty);
+val node4 = Node (4, Empty, Empty);
+val node5 = Node (5, Empty, Empty);
+val node7 = Node (7, Empty, Empty);
+val node69 = Node(69, Empty, Empty);
+val t6 = Node (6, node7, Empty);
+val t3 = Node (3, node5, t6);
+val t2 = Node (2, Empty, node4);
+val t1 = Node (1, t2, t3);
+val node8 = Node(8,Empty,Empty);
+val tree12 = Node(2,Empty,node3);
+val tree2 = Node(1,Empty,tree12);
+val tree31 = Node(7,Empty,node8);
+val tree32 = Node(9,Empty,Empty);
+val tree33 = Node(6,tree32,tree31);
+val tree34 = Node(3,node1,node2);
+val tree35 = Node(5,tree34,Empty);
+val tree3 = Node(4,tree35,tree33);
+val tree41 = Node(57, Empty, node69);
+val tree42 = Node(44, tree41, Empty);
+val tree43 = Node(53, Empty, tree42);
+val tree44 = Node(20, tree43,Empty);
+val tree4 = Node(99, Empty, tree44);
+val tree51 = Node(3,node1,Empty);
+val tree5 = Node(1,Empty,tree51);
+val tree6 = Empty;
+val tree71 = Node(4, node1, Empty);
+val tree72 = Node (1, node1,node2);
+val tree7 = Node (3, tree72, tree71);
+@
